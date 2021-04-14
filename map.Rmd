@@ -1,0 +1,205 @@
+---
+title: "Map/graph"
+author: "Alexandra Norris"
+date: "2/26/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(readr)
+library(sf)
+library(janitor)
+library(ggthemes)
+library(viridis)  
+library(tidycensus)
+library(transformr)
+library(lubridate)
+library(RColorBrewer)
+library(scales)
+# library(tmaptools)
+# library(patchwork)
+# library(RCurl)
+library(readxl)
+library(zoo)
+library(sf)
+library(gganimate)
+library(cowplot)
+
+library(ggspatial)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(maps)
+library(purrr)
+library(plotly)
+library(grDevices)
+
+
+
+```
+
+
+```{r}
+
+# read in the data
+
+x <- read_xlsx("Data_Extract_From_Statistical_Capacity_Indicators (1).xlsx") %>%
+  clean_names()
+
+# filter for the data that is in excel
+sheet <- x %>% 
+  select(country_name, time, population_census_3_11_01_01_popcen, agricultural_census_3_01_04_01_agcen,      vital_registration_system_coverage_3_11_01_03_popreg) %>%
+  mutate(pop_census = as.numeric(population_census_3_11_01_01_popcen)) %>%
+  mutate(ag_census = as.numeric(agricultural_census_3_01_04_01_agcen)) %>%
+  mutate(vital_record = as.numeric(vital_registration_system_coverage_3_11_01_03_popreg)) %>%
+  select(country_name, time, pop_census, ag_census, vital_record) %>%
+  group_by(country_name, time) %>%
+  mutate(liability = sum(pop_census, ag_census, vital_record, na.rm = TRUE))
+
+```
+
+```{r}
+
+# create south sudan for before 2013
+time <- c(2005,2006,2007,2008,2009,2010,2011,2012,2005,2006,2007,2008,2009,2010,2011,2012)
+country_name <-  c("South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)", "South Sudan", "Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo")
+liability <- c(0,0,0,0,1,1,1,1,5,5,5,5,5,5,5,5)
+south_sudan <- data.frame(time, country_name, liability)
+
+# create data for "high income" countries - not included in World Bank Data
+
+high_income <- read_csv("csvData.csv") %>%
+  filter(!country %in% c("Argentina", "Poland", "Chile", "Panama", "Uruguay")) %>%
+  select(country) %>%
+  mutate('2005' = "") %>%
+  mutate('2006' = "") %>%
+  mutate('2007' = "") %>%
+  mutate('2008' = "") %>%
+  mutate('2009' = "") %>%
+  mutate('2010' = "") %>%
+  mutate('2011' = "") %>%
+  mutate('2012' = "") %>%
+  mutate('2013' = "") %>%
+  mutate('2014' = "") %>%
+  mutate('2015' = "") %>%
+  mutate('2016' = "") %>%
+  mutate('2017' = "") %>%
+  mutate('2018' = "") %>%
+  mutate('2019' = "") %>%
+  mutate('2020' = "") %>%
+  pivot_longer(cols = c('2005','2006','2007','2008','2009','2010','2011','2012','2013','2014','2015','2016','2017','2018','2019','2020'), names_to = "time") %>%
+  mutate(liability = 4) %>%
+  mutate(country_name = country) %>%
+  select(country_name, time, liability)
+
+graph_data <- sheet %>%
+  na.omit() %>%
+  select(country_name, liability) %>%
+  filter(time != 2004) %>%
+  filter(!country_name %in% c("East Asia & Pacific (excluding high income)", "Europe & Central Asia (excluding high income)",  "IBRD only", "IDA & IBRD total", "IDA total", "Latin America & Caribbean (excluding high income)", "Middle East & North Africa (excluding high income)", "Sub-Saharan Africa (excluding high income)", "Tuvalu", "Palau", "St. Kitts and Nevis", "Marshall Islands", "Dominica", "Antigua and Barbuda", "Seychelles", "Tonga", "St. Vincent and the Grenadines", "Grenada", "Micronesia, Fed. Sts.", "Kiribati", "St. Lucia", "Samoa", "Sao Tome and Principe"))
+
+graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
+  
+```
+
+
+```{r}
+
+# create data for difference between 2019 and 2020
+
+# map_data <- graph_data %>%
+#   filter(time %in% c(2019, 2020)) %>%
+#   ungroup() %>%
+#   group_by(country_name) %>%
+#   mutate(change = liability[time==2020]-liability[time==2019])
+
+```
+
+```{r}
+
+# create plotly plot for difference between 2019 and 2020
+
+# change <- plot_geo(data = map_data, locationmode = 'country names') %>%
+#   layout(title = list(text = "", size = 10)) %>%
+#   add_trace(
+#     z = ~change, 
+#     locations = ~country_name, 
+#     color = ~change,
+#     showscale = FALSE,
+#     colors = c('#DC143C', '#FF8C00', "white", '#1E90FF'),
+#     colorbar = list(title = "Change"))
+# htmlwidgets::saveWidget(as_widget(change), "leg_change.html")
+# 
+# recent_map <- graph_data %>%
+#   filter(time==2020) %>%
+#   mutate(class = ifelse(liability==0, "Collapsed", ifelse(liability==1, "Weak", ifelse(liability==2, "Consolidated", "Strong"))))
+# 
+# 
+# recent_map <- plot_geo(data = recent_map, locationmode = 'country names') %>%
+#   layout(title = list(text = "State Capacity: 2020", size = 10)) %>%
+#   add_trace(
+#     z = ~liability, 
+#     locations = ~country_name, 
+#     color = ~liability,
+#     showscale = FALSE,
+#     text = ~class,
+#     colors = c('#DC143C', '#FF8C00', "#FFFACD", "white"),
+#     colorbar = list(title = "Change"))
+# htmlwidgets::saveWidget(as_widget(recent_map), "leg_2020.html")
+
+
+
+```
+
+```{r}
+
+
+# map <- plot_geo(data = graph_data, locationmode = 'country names') %>%
+#   layout(title = list(text = "Legibility Across the World: 2005-2020", size = 10)) %>%
+#     add_trace(
+#     z = ~liability, 
+#     locations = ~country_name, 
+#     frame = ~time,
+#     color = ~liability,
+#     showscale = FALSE,
+#     colors = c('#DC143C', '#FF8C00', '#FFFACD', "white"),
+#     colorbar = list(title = "Legibility 2020")) %>%
+#     animation_slider(currentvalue = list(prefix = "YEAR "))
+# htmlwidgets::saveWidget(as_widget(map), "legibility.html")
+
+
+```
+
+```{r}
+
+try <- graph_data %>%
+  mutate(class = ifelse(liability==0, "Collapsed", ifelse(liability==1, "Weak", ifelse(liability==2, "Consolidated", ifelse(liability==4, "High Income/No Data", ifelse(liability==5, "No Data","Strong"))))))
+
+names <- plot_geo(data = try, locationmode = 'country names') %>%
+  layout(title = list(text = "State Capacity Across the Developing World, 2005-2020", size = 10)) %>%
+    add_trace(
+    z = ~liability,
+    locations = ~country_name,
+    frame = ~time,
+    color = ~liability,
+    showscale = FALSE,
+    # text = ~class,
+    labels = ~country_name,
+    text = ~paste(country_name, "-",
+                            class),
+    hoverinfo = "text",
+    # textposition =  'outside',
+    colors = c('#DC143C', '#FF8C00', '#FFFACD', "white", "white","white"),
+    colorbar = list(title = "Legibility 2020")) %>%
+    animation_slider(currentvalue = list(prefix = "YEAR "))
+htmlwidgets::saveWidget(as_widget(names), "legibility_w_names.html")
+
+names
+
+```
+
+
+
+

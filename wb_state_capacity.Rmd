@@ -1,0 +1,517 @@
+---
+title: "WB State Capacity"
+author: "Alexandra Norris"
+date: "2/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(ggplot2)
+library(plotly)
+library(maps)
+library(ggmap)
+library(gganimate)
+library(transformr)
+
+```
+
+```{r}
+
+wb <- read_xlsx("_World Bank - Statistical_Capacity_Indicators_2020.xlsx", sheet = 2) %>%
+  clean_names()
+
+ag <- wb %>%
+  filter(series_name == "Agricultural census") %>%
+  select(country_name, x2019_yr2019, x2020_yr2020) %>%
+  # mutate(ag_2019 = as.numeric(x2019_yr2019)) %>%
+  # mutate(ag_2020 = as.numeric(x2020_yr2020)) %>%
+  mutate(ag_diff = (x2019_yr2019 - x2020_yr2020)) %>%
+  mutate(total = sum(ag_diff, na.rm = TRUE))
+
+pop <- wb %>%
+  filter(series_name == "Population census") %>%
+  select(country_name, x2019_yr2019, x2020_yr2020) %>%
+  # mutate(ag_2019 = as.numeric(x2019_yr2019)) %>%
+  # mutate(ag_2020 = as.numeric(x2020_yr2020)) %>%
+  mutate(pop_diff = (x2019_yr2019 - x2020_yr2020)) %>%
+  mutate(total = sum(pop_diff, na.rm = TRUE))
+
+reg <- wb %>%
+  filter(series_name == "Vital registration system coverage") %>%
+  select(country_name, x2019_yr2019, x2020_yr2020) %>%
+  # mutate(ag_2019 = as.numeric(x2019_yr2019)) %>%
+  # mutate(ag_2020 = as.numeric(x2020_yr2020)) %>%
+  mutate(reg_diff = (x2019_yr2019 - x2020_yr2020)) %>%
+  mutate(total = sum(reg_diff, na.rm = TRUE))
+
+```
+
+```{r}
+
+# read in the other data
+
+x <- read_xlsx("Data_Extract_From_Statistical_Capacity_Indicators (1).xlsx") %>%
+  clean_names()
+
+# filter for the data that is in excel
+sheet <- x %>% 
+  select(country_name, time, population_census_3_11_01_01_popcen, agricultural_census_3_01_04_01_agcen,      vital_registration_system_coverage_3_11_01_03_popreg) %>%
+  mutate(pop_census = as.numeric(population_census_3_11_01_01_popcen)) %>%
+  mutate(ag_census = as.numeric(agricultural_census_3_01_04_01_agcen)) %>%
+  mutate(vital_record = as.numeric(vital_registration_system_coverage_3_11_01_03_popreg)) %>%
+  select(country_name, time, pop_census, ag_census, vital_record) %>%
+  group_by(country_name, time) %>%
+  mutate(liability = sum(pop_census, ag_census, vital_record, na.rm = TRUE))
+
+```
+
+```{r}
+# make sure that collapsed state data is the same as in sheet
+
+graph_data %>%
+  filter(time == 2019) %>% 
+  filter(liability==0) %>%
+  na.omit() %>%
+  nrow()
+
+graph_data %>%
+  filter(time == 2020) %>% 
+  filter(liability==0) %>%
+  na.omit() %>%
+  nrow()
+
+graph_data %>%
+  filter(time == 2019) %>% 
+  filter(liability==1) %>%
+  na.omit() %>%
+  nrow()
+
+graph_data %>%
+  filter(time == 2020) %>% 
+  filter(liability==1) %>%
+  na.omit() %>%
+  nrow()
+
+# 2019: 9 failed, 24 weak
+# 2020: 12 failed, 39 weak
+
+# Total Fragile Change is 33 to 51
+  
+```
+
+```{r}
+
+# look at variable changes between 2019 and 2020
+  
+dif <- sheet %>%
+  filter(time %in% c(2018, 2019, 2020)) %>%
+  group_by(country_name) %>%
+  mutate(pop_dif = pop_census[time==2019] - pop_census[time==2020]) %>%
+  mutate(ag_dif = ag_census[time==2019] - ag_census[time==2020]) %>%
+  mutate(vital_dif = vital_record[time==2019] - vital_record[time==2020]) %>%
+  mutate(liability_dif = liability[time==2019] - liability[time==2020])
+
+dif %>%
+  select(country_name, liability_dif) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(total = sum(liability_dif, na.rm = TRUE))
+
+# TOTAL LEGIBILITY CHANGE 19-20 was 30
+
+dif %>%
+  select(country_name, ag_dif) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(total = sum(ag_dif, na.rm = TRUE))
+
+# TOTAL AGRICULTURE CHANGE WAS 26
+
+dif %>%
+  select(country_name, pop_dif) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(total = sum(pop_dif, na.rm = TRUE))
+
+# TOTAL POPULATION CHANGE WAS 3
+
+dif %>%
+  select(country_name, vital_dif) %>%
+  distinct() %>%
+  ungroup() %>%
+  mutate(total = sum(vital_dif, na.rm = TRUE))
+
+# TOTAL VITAL RECORDS CHANGE WAS 1
+
+```
+
+```{r}
+
+# find the countries that were weak and failed in 2019
+
+# 2019 FAILED STATES
+# Afghanistan				
+# Central African Republic				
+# Congo, Dem. Rep.				
+# Eritrea				
+# Iraq				
+# Libya				
+# Somalia				
+# Syrian Arab Republic				
+# Yemen, Rep.
+
+dif %>%
+  filter(time == 2019) %>%
+  filter(liability == 0) %>%
+  na.omit() %>%
+  select(country_name)
+
+# 2019 WEAK STATES
+# Algeria				
+# Burkina Faso				
+# Cameroon				
+# Djibouti				
+# Dominican Republic				
+# Ecuador				
+# Haiti				
+# Honduras				
+# Kiribati				
+# Kosovo
+# Liberia				
+# Madagascar				
+# Marshall Islands				
+# Mauritania				
+# Nicaragua				
+# Nigeria				
+# Papua New Guinea				
+# Rwanda				
+# Sierra Leone				
+# Solomon Islands
+# South Sudan				
+# Turkmenistan				
+# Tuvalu				
+# Ukraine				
+# Uzbekistan				
+# Zambia				
+# Zimbabwe
+
+dif %>%
+  filter(time == 2019) %>%
+  filter(liability == 1) %>%
+  na.omit() %>%
+  select(country_name)
+
+# find the countries that were weak and failed in 2020
+
+dif %>%
+  filter(time == 2020) %>%
+  filter(liability == 0) %>%
+  na.omit() %>%
+  select(country_name)
+
+# 2020 FAILED STATES
+# Afghanistan				
+# Cameroon				
+# Central African Republic				
+# Congo, Dem. Rep.				
+# Eritrea				
+# Ethiopia				
+# Iraq				
+# Libya				
+# Nigeria				
+# Somalia
+# Syrian Arab Republic				
+# Yemen, Rep.
+
+dif %>%
+  filter(time == 2020) %>%
+  filter(liability == 1) %>%
+  na.omit() %>%
+  select(country_name)
+
+# 2020 WEAK STATES
+# Algeria				
+# Angola				
+# Benin				
+# Burundi				
+# Chad				
+# Comoros				
+# Congo, Rep.				
+# Djibouti				
+# Dominican Republic				
+# Ecuador
+# Gabon				
+# Guinea				
+# Guinea-Bissau				
+# Guyana				
+# Haiti				
+# Honduras				
+# Jamaica				
+# Kazakhstan				
+# Kiribati				
+# Kosovo
+# Liberia				
+# Madagascar				
+# Malawi				
+# Mali				
+# Marshall Islands				
+# Mauritania				
+# Nicaragua				
+# North Macedonia				
+# Papua New Guinea				
+# Rwanda
+# Sierra Leone				
+# Solomon Islands				
+# South Sudan				
+# Sudan				
+# Tunisia				
+# Turkmenistan				
+# Tuvalu				
+# Ukraine				
+# Uzbekistan				
+# Vanuatu
+# Zambia				
+# Zimbabwe
+
+
+
+# DECLINING STATES
+
+# New Failed States 2020
+# Cameroon				
+# Ethiopia				
+# Nigeria		
+
+# New Weak States 2020
+# Angola
+# Benin
+# Burundi
+# Chad
+# Comoros
+# Congo, Rep.
+# Gabon
+# Guinea
+# Guinea-Bissau
+# Guyana
+# Jamaica
+# Kazakhstan
+# Malawi
+# Mali
+# North Macedonia
+# Sudan
+# Tunisia
+# Vanuatu
+
+```
+```{r}
+
+# FAILED
+
+# analysis of new failed states and what drove that change
+
+dif %>%
+  filter(country_name %in% c("Cameroon", "Ethiopia", "Nigeria")) %>%
+  select(country_name, pop_dif, ag_dif, vital_dif, liability_dif) %>%
+  distinct()
+
+# all three countries saw their agricultural censuses go out of date, Ethiopia
+# also had it's population census go out of date
+
+
+# WEAK
+
+# analysis of new weak states and what drove that change
+
+dif %>%
+  filter(country_name %in% c("Angola", 
+                            "Benin",
+                            "Burundi",
+                            "Chad",
+                            "Comoros",
+                            "Congo, Rep.",
+                            "Gabon",
+                            "Guinea",
+                            "Guinea-Bissau",
+                            "Guyana",
+                            "Jamaica",
+                            "Kazakhstan",
+                            "Malawi",
+                            "Mali",
+                            "North Macedonia",
+                            "Sudan",
+                            "Tunisia",
+                            "Vanuatu")) %>%
+  select(country_name, pop_dif, ag_dif, vital_dif, liability_dif) %>%
+  distinct() %>%
+  filter(ag_dif==1) 
+
+# Agricultural Census Decline
+# Angola
+# Benin
+# Chad
+# Comoros
+# Gabon
+# Guinea
+# Guinea-Bissau
+# Guyana
+# Jamaica
+# kazakhstan
+# Malawi
+# Mali
+# North Macedonia ******
+# Sudan
+# Tunisia
+# Vanuatu
+
+# Population Census Decline
+# Congo, Rep.
+# North Macedonia ******
+
+```
+
+```{r}
+
+# analysis of other variable changes for new failed states
+
+x %>%
+  filter(country_name %in% c("Cameroon", "Ethiopia", "Nigeria")) %>%
+  filter(time %in% c(2019, 2020)) %>%
+  mutate(overall_cap = as.numeric(overall_average_iq_sci_ovrl)) %>%
+  group_by(country_name) %>%
+  mutate(overall_dif = overall_cap[time==2019] - overall_cap[time==2020]) %>%
+  mutate(srce = as.numeric(source_data_assessment_of_statistical_capacity_scale_0_100_iq_sci_srce)) %>%
+  mutate(prdc = as.numeric(periodicity_and_timeliness_assessment_of_statistical_capacity_scale_0_100_iq_sci_prdc)) %>%
+  mutate(mthd = as.numeric(methodology_assessment_of_statistical_capacity_scale_0_100_iq_sci_mthd)) %>%
+  select(country_name, time, srce, prdc, mthd, overall_cap) %>%
+  group_by(country_name) %>%
+  mutate(srce_dif = srce[time==2019] - srce[time==2020]) %>%
+  mutate(prdc_dif = prdc[time==2019] - prdc[time==2020]) %>%
+  mutate(mthd_dif = mthd[time==2019] - mthd[time==2020]) %>%
+  mutate(overall_dif = overall_cap[time==2019] - overall_cap[time==2020]) %>%
+  select(country_name,srce_dif, prdc_dif, mthd_dif, overall_dif) %>%
+  distinct()
+
+
+
+
+x %>%
+   filter(country_name %in% c("Angola", 
+                            "Benin",
+                            "Burundi",
+                            "Chad",
+                            "Comoros",
+                            "Congo, Rep.",
+                            "Gabon",
+                            "Guinea",
+                            "Guinea-Bissau",
+                            "Guyana",
+                            "Jamaica",
+                            "Kazakhstan",
+                            "Malawi",
+                            "Mali",
+                            "North Macedonia",
+                            "Sudan",
+                            "Tunisia",
+                            "Vanuatu")) %>%
+  filter(time %in% c(2019, 2020)) %>%
+  mutate(overall_cap = as.numeric(overall_average_iq_sci_ovrl)) %>%
+  group_by(country_name) %>%
+  mutate(overall_dif = overall_cap[time==2019] - overall_cap[time==2020]) %>%
+  mutate(srce = as.numeric(source_data_assessment_of_statistical_capacity_scale_0_100_iq_sci_srce)) %>%
+  mutate(prdc = as.numeric(periodicity_and_timeliness_assessment_of_statistical_capacity_scale_0_100_iq_sci_prdc)) %>%
+  mutate(mthd = as.numeric(methodology_assessment_of_statistical_capacity_scale_0_100_iq_sci_mthd)) %>%
+  select(country_name, time, srce, prdc, mthd, overall_cap) %>%
+  group_by(country_name) %>%
+  mutate(srce_dif = srce[time==2019] - srce[time==2020]) %>%
+  mutate(prdc_dif = prdc[time==2019] - prdc[time==2020]) %>%
+  mutate(mthd_dif = mthd[time==2019] - mthd[time==2020]) %>%
+  mutate(overall_dif = overall_cap[time==2019] - overall_cap[time==2020]) %>%
+  select(country_name,srce_dif, prdc_dif, mthd_dif, overall_dif) %>%
+  distinct()
+
+```
+
+```{r include=FALSE}
+
+# Create ggplot of legibility from 2005-2020
+
+# create south sudan for before 2013
+time <- c(2005,2006,2007,2008,2009,2010,2011,2012,2005,2006,2007,2008,2009,2010,2011,2012)
+country_name <-  c("South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)","South Sudan (part of Sudan)", "South Sudan", "Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo","Kosovo")
+liability <- c(0,0,0,0,1,1,1,1,5,5,5,5,5,5,5,5)
+south_sudan <- data.frame(time, country_name, liability)
+
+
+high_income <- read_csv("csvData.csv") %>%
+  filter(!country %in% c("Argentina", "Poland", "Chile", "Panama", "Uruguay")) %>%
+  select(country) %>%
+  mutate('2005' = "") %>%
+  mutate('2006' = "") %>%
+  mutate('2007' = "") %>%
+  mutate('2008' = "") %>%
+  mutate('2009' = "") %>%
+  mutate('2010' = "") %>%
+  mutate('2011' = "") %>%
+  mutate('2012' = "") %>%
+  mutate('2013' = "") %>%
+  mutate('2014' = "") %>%
+  mutate('2015' = "") %>%
+  mutate('2016' = "") %>%
+  mutate('2017' = "") %>%
+  mutate('2018' = "") %>%
+  mutate('2019' = "") %>%
+  mutate('2020' = "") %>%
+  pivot_longer(cols = c('2005','2006','2007','2008','2009','2010','2011','2012','2013','2014','2015','2016','2017','2018','2019','2020'), names_to = "time") %>%
+  mutate(liability = 4) %>%
+  mutate(country_name = country) %>%
+  select(country_name, time, liability)
+
+graph_data <- sheet %>%
+  na.omit() %>%
+  select(country_name, liability) %>%
+  filter(time != 2004) %>%
+  filter(!country_name %in% c("East Asia & Pacific (excluding high income)", "Europe & Central Asia (excluding high income)",  "IBRD only", "IDA & IBRD total", "IDA total", "Latin America & Caribbean (excluding high income)", "Middle East & North Africa (excluding high income)", "Sub-Saharan Africa (excluding high income)", "Tuvalu", "Palau", "St. Kitts and Nevis", "Marshall Islands", "Dominica", "Antigua and Barbuda", "Seychelles", "Tonga", "St. Vincent and the Grenadines", "Grenada", "Micronesia, Fed. Sts.", "Kiribati", "St. Lucia", "Samoa", "Sao Tome and Principe"))
+
+graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
+  
+
+graph_data%>%
+  group_by(time, liability) %>%
+  count() %>%
+  filter(liability %in% c(0,1)) %>%
+  mutate(Legibility = ifelse(liability==0, "Collapsed States", "Weak States")) %>%
+  mutate(Legibility = factor(Legibility, levels = c("Weak States", "Collapsed States"))) %>%
+  ggplot(aes(x = time, y = n, fill = Legibility)) + 
+  geom_area(position = "stack", alpha = 1) +
+  scale_x_continuous(breaks = c(2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020)) +
+  scale_y_continuous(breaks = c(0,5,10,15,20,25,30,35,40,45,50,55,60,65)) +
+  scale_fill_manual(values = c("tan1", "orangered3"), name = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size=20), plot.title = element_text(size = 20)) +
+  labs(x = "Year", y = "Number of Countries", title = "Fragile States Over Time") 
+ggsave("area.png", width = 12, height = 8)  
+
+
+```
+
+```{r}
+graph_data %>%
+    filter(time == 2005) %>%
+    filter(liability %in% c(0,1)) %>%
+    na.omit() %>%
+    select(country_name)
+
+
+```
+
+
+```{r}
+dif %>% filter(ag_dif==1)
+
+```
+
+
