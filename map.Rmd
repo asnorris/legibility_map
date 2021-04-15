@@ -1,12 +1,12 @@
 ---
-title: "Map/graph"
-author: "Alexandra Norris"
-date: "2/26/2021"
+title:
+author: 
+date: 
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 
 library(tidyverse)
 library(readr)
@@ -41,7 +41,7 @@ library(grDevices)
 ```
 
 
-```{r}
+```{r, include=FALSE, warning=FALSE}
 
 # read in the data
 
@@ -60,7 +60,7 @@ sheet <- x %>%
 
 ```
 
-```{r}
+```{r, include=FALSE, warning=FALSE}
 
 # create south sudan for before 2013
 time <- c(2005,2006,2007,2008,2009,2010,2011,2012,2005,2006,2007,2008,2009,2010,2011,2012)
@@ -105,7 +105,7 @@ graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
 ```
 
 
-```{r}
+```{r, include=FALSE}
 
 # create data for difference between 2019 and 2020
 
@@ -117,7 +117,7 @@ graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
 
 ```
 
-```{r}
+```{r,include=FALSE}
 
 # create plotly plot for difference between 2019 and 2020
 
@@ -153,7 +153,7 @@ graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
 
 ```
 
-```{r}
+```{r include=FALSE}
 
 
 # map <- plot_geo(data = graph_data, locationmode = 'country names') %>%
@@ -172,7 +172,7 @@ graph_data <- rbind(data.frame(graph_data), south_sudan, high_income)
 
 ```
 
-```{r}
+```{r, include=FALSE, warning=FALSE, message=FALSE}
 
 try <- graph_data %>%
   mutate(class = ifelse(liability==0, "Collapsed", ifelse(liability==1, "Weak", ifelse(liability==2, "Consolidated", ifelse(liability==4, "High Income/No Data", ifelse(liability==5, "No Data","Strong"))))))
@@ -194,12 +194,14 @@ names <- plot_geo(data = try, locationmode = 'country names') %>%
     colors = c('#DC143C', '#FF8C00', '#FFFACD', "white", "white","white"),
     colorbar = list(title = "Legibility 2020")) %>%
     animation_slider(currentvalue = list(prefix = "YEAR "))
-htmlwidgets::saveWidget(as_widget(names), "legibility_w_names.html")
+# htmlwidgets::saveWidget(as_widget(names), "legibility_w_names.html")
 
-names
 
 ```
 
 
+```{r}
+names
+```
 
 
